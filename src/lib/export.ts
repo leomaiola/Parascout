@@ -1,6 +1,8 @@
 import ExcelJS from 'exceljs'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
+import jsPDF from 'jspdf'
+import autoTable from 'jspdf-autotable'
 import type { ScoutEvent, AthleteMatchStats, Match, Athlete } from './database.types'
 
 // ─── Helpers ──────────────────────────────────────────────
@@ -256,4 +258,81 @@ export async function exportTeamReport(
   })
 
   await saveWorkbook(wb, `ParaScout_Equipe_${format(new Date(), 'yyyyMM')}.xlsx`)
+}
+
+// ─── PDF export (relatório da partida) ─────────────────────
+
+function pdfHeader(doc: jsPDF, title: string, subtitle: string) {
+  doc.setFillColor(13, 31, 45)
+  doc.rect(0, 0, doc.internal.pageSize.getWidth(), 26, 'F')
+  doc.setTextColor(255, 255, 255)
+  doc.setFontSize(15)
+  doc.text('ParaScout', 12, 12)
+  doc.setFontSize(10)
+  doc.setTextColor(0, 184, 148)
+  doc.text(title, 12, 19)
+  doc.setTextColor(200, 200, 200)
+  doc.setFontSize(8)
+  doc.text(subtitle, 12, 24)
+  doc.setTextColor(0, 0, 0)
+}
+
+export function exportMatchEventsPDF(
+  events: ScoutEvent[],
+  match: Match,
+  athleteMap: Record<string, string>
+) {
+  const doc = new jsPDF()
+  pdfHeader(
+    doc,
+    `${match.home_team} ${match.home_score ?? 0} × ${match.away_score ?? 0} ${match.away_team}`,
+    `Modalidade: ${match.modality} · Gerado em ${format(new Date(), 'dd/MM/yyyy HH:mm', { locale: ptBR })}`
+  )
+
+  const rows = events.map((e) => [
+    fmtSec(e.match_time_sec),
+    e.period ?? '',
+    athleteMap[e.athlete_id ?? ''] ?? 'Equipe',
+    e.event_category,
+    e.event_type,
+    e.outcome ?? '',
+    e.goal_quadrant ? `Q${e.goal_quadrant}` : '',
+    e.notes ?? '',
+  ])
+
+  autoTable(doc, {
+    startY: 32,
+    head: [['Tempo', 'Per.', 'Atleta', 'Categoria', 'Tipo', 'Resultado', 'Quad.', 'Obs.']],
+    body: rows,
+    styles: { fontSize: 7, cellPadding: 2 },
+    headStyles: { fillColor: [13, 31, 45], textColor: 255 },
+    alternateRowStyles: { fillColor: [248, 250, 251] },
+    columnStyles: { 7: { cellWidth: 45 } },
+  })
+
+  doc.save(`ParaScout_Partida_${format(new Date(), 'yyyyMMdd_HHmm')}.pdf`)
+}
+
+export function exportAthleteSeasonStatsPDF(stats: AthleteMatchStats[], athlete: Athlete) {
+  const doc = new jsPDF()
+  pdfHeader(doc, athlete.full_name, `Relatório de temporada · Gerado em ${format(new Date(), 'dd/MM/yyyy HH:mm', { locale: ptBR })}`)
+
+  const rows = (stats as any[]).map((s) => [
+    fmtDate(s.created_at ?? s.match_date ?? null),
+    s.match_label ?? s.match_id ?? '',
+    s.total_attacks ?? 0,
+    s.goals_scored ?? 0,
+    s.efficiency_pct != null ? `${s.efficiency_pct}%` : '',
+  ])
+
+  autoTable(doc, {
+    startY: 32,
+    head: [['Data', 'Partida', 'Ataques', 'Gols', 'Eficiência']],
+    body: rows,
+    styles: { fontSize: 8, cellPadding: 3 },
+    headStyles: { fillColor: [13, 31, 45], textColor: 255 },
+    alternateRowStyles: { fillColor: [248, 250, 251] },
+  })
+
+  doc.save(`ParaScout_${athlete.full_name.replace(/\s+/g, '_')}_Temporada.pdf`)
 }

@@ -1,43 +1,60 @@
 import React, { useState } from 'react'
 import { Download, BarChart2, TrendingUp, Users, Trophy, Filter } from 'lucide-react'
+import {
+  ResponsiveContainer, BarChart, Bar, LineChart, Line, XAxis, YAxis, Tooltip,
+  CartesianGrid, PieChart, Pie, Cell, Legend,
+} from 'recharts'
 import { useMatches, useAthletes, useAthleteSeasonStats, useAthleteMatchStats } from '../hooks/useData'
-import { exportMatchEvents, exportAthleteSeasonStats, exportTeamReport } from '../lib/export'
+import { exportMatchEvents, exportAthleteSeasonStats, exportTeamReport, exportMatchEventsPDF, exportAthleteSeasonStatsPDF } from '../lib/export'
 import { MODALITY_LIST } from '../constants/modalities'
 import { useScoutEvents } from '../hooks/useData'
 import type { Athlete } from '../lib/database.types'
 
-// Simple bar chart using divs
+const CHART_PALETTE = ['#00B894', '#0984E3', '#6C5CE7', '#E17055', '#FDCB6E', '#E84393', '#00CEC9']
+
+// Gráfico de barras (recharts) — usado no lugar das divs feitas à mão
 function MiniBarChart({ data, color = '#00B894' }: { data: { label: string; value: number }[]; color?: string }) {
-  const max = Math.max(...data.map(d => d.value), 1)
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-      {data.map(({ label, value }) => (
-        <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div style={{ fontSize: 12, color: '#666', width: 110, flexShrink: 0, textAlign: 'right' }}>{label}</div>
-          <div style={{ flex: 1, background: '#f1f3f5', borderRadius: 4, height: 20, overflow: 'hidden', position: 'relative' }}>
-            <div style={{ width: `${(value / max) * 100}%`, height: '100%', background: color, borderRadius: 4, transition: 'width .5s', display: 'flex', alignItems: 'center', paddingLeft: 6 }}>
-              {value > 0 && <span style={{ fontSize: 11, fontWeight: 700, color: '#fff' }}>{value}</span>}
-            </div>
-          </div>
-        </div>
-      ))}
-    </div>
+    <ResponsiveContainer width="100%" height={Math.max(120, data.length * 34)}>
+      <BarChart data={data} layout="vertical" margin={{ left: 8, right: 16, top: 4, bottom: 4 }}>
+        <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#eee" />
+        <XAxis type="number" hide />
+        <YAxis type="category" dataKey="label" width={100} tick={{ fontSize: 12, fill: '#666' }} />
+        <Tooltip cursor={{ fill: 'rgba(0,0,0,0.03)' }} />
+        <Bar dataKey="value" fill={color} radius={[0, 6, 6, 0]} barSize={18} />
+      </BarChart>
+    </ResponsiveContainer>
   )
 }
 
-// Sparkline using inline SVG
+// Linha de evolução (recharts) — substitui o sparkline em SVG puro
 function Sparkline({ values, color = '#00B894', height = 40 }: { values: number[]; color?: string; height?: number }) {
   if (values.length < 2) return null
-  const max = Math.max(...values, 1)
-  const w = 200
-  const pts = values.map((v, i) => `${(i / (values.length - 1)) * w},${height - (v / max) * height * 0.85}`)
+  const data = values.map((v, i) => ({ i: i + 1, v }))
   return (
-    <svg width={w} height={height} style={{ display: 'block' }}>
-      <polyline points={pts.join(' ')} fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-      {values.map((v, i) => (
-        <circle key={i} cx={(i / (values.length - 1)) * w} cy={height - (v / max) * height * 0.85} r={i === values.length - 1 ? 4 : 2.5} fill={color} />
-      ))}
-    </svg>
+    <ResponsiveContainer width="100%" height={height}>
+      <LineChart data={data} margin={{ top: 4, right: 4, bottom: 0, left: 4 }}>
+        <Line type="monotone" dataKey="v" stroke={color} strokeWidth={2} dot={{ r: 3 }} activeDot={{ r: 5 }} isAnimationActive={false} />
+        <Tooltip formatter={(v: number) => [`${v}%`, 'Eficiência']} labelFormatter={(l) => `Partida ${l}`} />
+      </LineChart>
+    </ResponsiveContainer>
+  )
+}
+
+// Gráfico de pizza — distribuição por categoria (ex: tipos de arremesso, resultado das ações)
+function DistributionPie({ data }: { data: { name: string; value: number }[] }) {
+  const total = data.reduce((a, d) => a + d.value, 0)
+  if (total === 0) return null
+  return (
+    <ResponsiveContainer width="100%" height={200}>
+      <PieChart>
+        <Pie data={data} dataKey="value" nameKey="name" innerRadius={45} outerRadius={75} paddingAngle={2}>
+          {data.map((_, i) => <Cell key={i} fill={CHART_PALETTE[i % CHART_PALETTE.length]} />)}
+        </Pie>
+        <Tooltip />
+        <Legend wrapperStyle={{ fontSize: 11 }} />
+      </PieChart>
+    </ResponsiveContainer>
   )
 }
 
@@ -148,6 +165,13 @@ function AthleteSeasonCard({ athlete }: { athlete: Athlete }) {
         >
           <Download size={12} /> Excel
         </button>
+        <button
+          onClick={() => exportAthleteSeasonStatsPDF(stats as any, athlete)}
+          disabled={stats.length === 0}
+          style={{ background: '#E17055', color: '#fff', border: 'none', borderRadius: 8, padding: '6px 10px', cursor: 'pointer', fontSize: 11, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4, marginLeft: 6, opacity: stats.length === 0 ? 0.4 : 1 }}
+        >
+          <Download size={12} /> PDF
+        </button>
       </div>
 
       {/* Stats row */}
@@ -207,9 +231,11 @@ export default function ReportsPage() {
   // Aggregate throw types and quadrants from match events
   const throwTypeDist: Record<string, number> = {}
   const quadrantDistMatch: Record<string, number> = {}
+  const outcomeDist: Record<string, number> = {}
   matchEvents.forEach(e => {
     if (e.throw_type) throwTypeDist[e.throw_type] = (throwTypeDist[e.throw_type] || 0) + 1
     if (e.goal_quadrant) quadrantDistMatch[e.goal_quadrant] = (quadrantDistMatch[e.goal_quadrant] || 0) + 1
+    if (e.outcome) outcomeDist[e.outcome] = (outcomeDist[e.outcome] || 0) + 1
   })
 
   const handleExportMatch = () => {
@@ -218,6 +244,14 @@ export default function ReportsPage() {
       athletes.map(a => [a.id, a.full_name])
     )
     exportMatchEvents(matchEvents as any, selectedMatch, athleteMap)
+  }
+
+  const handleExportMatchPDF = () => {
+    if (!selectedMatch || matchEvents.length === 0) return
+    const athleteMap = Object.fromEntries(
+      athletes.map(a => [a.id, a.full_name])
+    )
+    exportMatchEventsPDF(matchEvents as any, selectedMatch, athleteMap)
   }
 
   const handleExportTeam = () => {
@@ -257,6 +291,13 @@ export default function ReportsPage() {
             >
               <Download size={14} /> Exportar Excel
             </button>
+            <button
+              onClick={handleExportMatchPDF}
+              disabled={!selectedMatchId || matchEvents.length === 0}
+              style={{ background: '#E17055', color: '#fff', border: 'none', borderRadius: 8, padding: '7px 14px', cursor: 'pointer', fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6, opacity: !selectedMatchId || matchEvents.length === 0 ? 0.4 : 1 }}
+            >
+              <Download size={14} /> Exportar PDF
+            </button>
           </div>
         </div>
 
@@ -283,6 +324,12 @@ export default function ReportsPage() {
               )}
               {Object.keys(quadrantDistMatch).length > 0 && (
                 <QuadrantHeatmap distribution={quadrantDistMatch} />
+              )}
+              {Object.keys(outcomeDist).length > 0 && (
+                <div>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: '#888', marginBottom: 4, letterSpacing: 1 }}>RESULTADO DAS AÇÕES</div>
+                  <DistributionPie data={Object.entries(outcomeDist).map(([name, value]) => ({ name, value }))} />
+                </div>
               )}
               {matchEvents.length === 0 && (
                 <p style={{ fontSize: 13, color: '#aaa', gridColumn: '1/-1', textAlign: 'center', padding: '20px 0' }}>
