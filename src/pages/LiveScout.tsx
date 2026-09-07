@@ -11,6 +11,7 @@ import { useRealtimeMatch, useMatchTimer, formatTime } from '../hooks/useRealtim
 import { useLiveScoutStore } from '../lib/store'
 import { MODALITY_METRICS } from '../constants/modalities'
 import GoalballCourt from '../components/scout/GoalballCourt'
+import CourtPlayers from '../components/scout/CourtPlayers'
 import AIPanel from '../components/scout/AIPanel'
 import EventTimeline from '../components/scout/EventTimeline'
 import type { NewScoutEvent } from '../lib/database.types'
@@ -60,8 +61,28 @@ export default function LiveScout() {
   const modality = currentMatch?.modality || 'goalball'
   const metrics = MODALITY_METRICS[modality]
 
-  const homeAthletes = matchAthletesRaw?.filter((ma) => ma.team === 'home').map((ma) => (ma as any).athletes) || []
-  const awayAthletes = matchAthletesRaw?.filter((ma) => ma.team === 'away').map((ma) => (ma as any).athletes) || []
+  const homeAthletes = matchAthletesRaw?.filter((ma) => ma.team === 'home').map((ma) => ({ ...(ma as any).athletes, jersey_number: (ma as any).jersey_number })) || []
+  const awayAthletes = matchAthletesRaw?.filter((ma) => ma.team === 'away').map((ma) => ({ ...(ma as any).athletes, jersey_number: (ma as any).jersey_number })) || []
+
+  // Which 3 athletes occupy court slots per team — starts with the first 3 rostered,
+  // editable live via the swap control on each token (client-side only; doesn't rewrite the roster).
+  const [homeOnCourt, setHomeOnCourt] = useState<any[]>([])
+  const [awayOnCourt, setAwayOnCourt] = useState<any[]>([])
+  useEffect(() => {
+    if (homeAthletes.length && homeOnCourt.length === 0) setHomeOnCourt(homeAthletes.slice(0, 3))
+  }, [matchAthletesRaw])
+  useEffect(() => {
+    if (awayAthletes.length && awayOnCourt.length === 0) setAwayOnCourt(awayAthletes.slice(0, 3))
+  }, [matchAthletesRaw])
+
+  function swapSlot(team: 'home' | 'away', index: number, athlete: any) {
+    const setter = team === 'home' ? setHomeOnCourt : setAwayOnCourt
+    setter((prev) => {
+      const next = [...prev]
+      next[index] = athlete
+      return next
+    })
+  }
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -209,13 +230,33 @@ export default function LiveScout() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           {/* Court */}
           {modality === 'goalball' && (
-            <GoalballCourt
-              onZoneClick={({ quadrant, posX, posY }) => setSelectedQuadrant(quadrant)}
-              events={events}
-              homeTeam={currentMatch.home_team}
-              awayTeam={currentMatch.away_team}
-              selectedQuadrant={selectedQuadrant}
-            />
+            <div style={{ position: 'relative' }}>
+              <GoalballCourt
+                onZoneClick={({ quadrant, posX, posY }) => setSelectedQuadrant(quadrant)}
+                events={events}
+                homeTeam={currentMatch.home_team}
+                awayTeam={currentMatch.away_team}
+                selectedQuadrant={selectedQuadrant}
+              />
+              <CourtPlayers
+                side="left"
+                color="#00B894"
+                onCourt={homeOnCourt}
+                roster={homeAthletes}
+                selectedAthleteId={selectedTeam === 'home' ? selectedAthlete?.id : null}
+                onSelect={(a) => { setSelectedTeam("home"); selectAthlete(a as any) }}
+                onSwap={(i, a) => swapSlot('home', i, a)}
+              />
+              <CourtPlayers
+                side="right"
+                color="#E17055"
+                onCourt={awayOnCourt}
+                roster={awayAthletes}
+                selectedAthleteId={selectedTeam === 'away' ? selectedAthlete?.id : null}
+                onSelect={(a) => { setSelectedTeam("away"); selectAthlete(a as any) }}
+                onSwap={(i, a) => swapSlot('away', i, a)}
+              />
+            </div>
           )}
 
           {/* Athlete selector */}
