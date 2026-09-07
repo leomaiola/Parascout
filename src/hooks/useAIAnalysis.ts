@@ -41,14 +41,7 @@ export function useAIAnalysis() {
       // Build context for AI
       const eventSummary = buildEventSummary(events, metrics)
       const prompt = buildPrompt({ events, match, athlete, metrics, eventSummary, reportType })
-
-      const response = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: 'claude-sonnet-4-20250514',
-          max_tokens: 1500,
-          system: `Você é um analista especializado em esportes paralímpicos com foco em scout tático.
+      const system = `Você é um analista especializado em esportes paralímpicos com foco em scout tático.
 Responda APENAS em JSON válido com esta estrutura:
 {
   "summary": "string — resumo geral em 2-3 frases",
@@ -58,15 +51,17 @@ Responda APENAS em JSON válido com esta estrutura:
   "recommendations": ["string — recomendação acionável para o treinador"],
   "patterns": ["string — padrão tático identificado"]
 }
-Seja preciso, use terminologia técnica do esporte e foque em dados concretos.`,
-          messages: [{ role: 'user', content: prompt }],
-        }),
+Seja preciso, use terminologia técnica do esporte e foque em dados concretos.`
+
+      // Chamada via Edge Function do Supabase — a chave da Anthropic fica só no servidor,
+      // nunca é exposta no navegador (antes era chamada direto do frontend).
+      const { data: fnData, error: fnError } = await supabase.functions.invoke('ai-analysis', {
+        body: { system, prompt },
       })
+      if (fnError) throw new Error(fnError.message || 'Erro na função de análise de IA')
+      if (fnData?.error) throw new Error(fnData.error)
 
-      if (!response.ok) throw new Error('Erro na API de IA')
-
-      const data = await response.json()
-      const text = data.content?.find((c: any) => c.type === 'text')?.text ?? '{}'
+      const text = fnData.content?.find((c: any) => c.type === 'text')?.text ?? '{}'
       const clean = text.replace(/```json|```/g, '').trim()
       const parsed: AIAnalysisResult = JSON.parse(clean)
 
@@ -81,7 +76,7 @@ Seja preciso, use terminologia técnica do esporte e foque em dados concretos.`,
         modality: match.modality as any,
         content: parsed.summary,
         insights: parsed.insights as any,
-        generated_by: 'claude-sonnet-4-6',
+        generated_by: 'claude-sonnet-5',
         created_by: user?.id ?? null,
       })
 
