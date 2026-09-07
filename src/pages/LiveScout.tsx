@@ -72,12 +72,16 @@ export default function LiveScout() {
   // editable live via the swap control on each token (client-side only; doesn't rewrite the roster).
   const [homeOnCourt, setHomeOnCourt] = useState<any[]>([])
   const [awayOnCourt, setAwayOnCourt] = useState<any[]>([])
+  // Nº de atletas simultâneos em quadra por modalidade (usado para preencher os slots iniciais)
+  const SLOT_COUNT: Record<string, number> = { goalball: 3, rugby: 3, volei: 3, tenis: 1, beach_tennis: 2 }
+  const slotCount = SLOT_COUNT[modality] ?? 3
+
   useEffect(() => {
-    if (homeAthletes.length && homeOnCourt.length === 0) setHomeOnCourt(homeAthletes.slice(0, 3))
-  }, [matchAthletesRaw])
+    if (homeAthletes.length && homeOnCourt.length === 0) setHomeOnCourt(homeAthletes.slice(0, slotCount))
+  }, [matchAthletesRaw, modality])
   useEffect(() => {
-    if (awayAthletes.length && awayOnCourt.length === 0) setAwayOnCourt(awayAthletes.slice(0, 3))
-  }, [matchAthletesRaw])
+    if (awayAthletes.length && awayOnCourt.length === 0) setAwayOnCourt(awayAthletes.slice(0, slotCount))
+  }, [matchAthletesRaw, modality])
 
   function swapSlot(team: 'home' | 'away', index: number, athlete: any) {
     const setter = team === 'home' ? setHomeOnCourt : setAwayOnCourt
@@ -265,7 +269,7 @@ export default function LiveScout() {
 
           {/* Team-court modalities (rugby em cadeira, vôlei sentado): mesmo padrão de
               atletas clicáveis, usando a configuração genérica de quadra da modalidade */}
-          {(modality === 'rugby' || modality === 'volei') && metrics && (
+          {(modality === 'rugby' || modality === 'volei' || modality === 'tenis' || modality === 'beach_tennis') && metrics && (
             <div style={{ position: 'relative' }}>
               <GenericCourtZones zones={metrics.court.zones} />
               <CourtPlayers

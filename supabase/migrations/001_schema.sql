@@ -13,7 +13,7 @@ create extension if not exists "uuid-ossp";
 create type modality_type as enum (
   'goalball', 'paracanoagem', 'remo', 'volei', 'rugby',
   'natacao', 'atletismo', 'ciclismo', 'tenis_mesa', 'bocce',
-  'futebol_5', 'judô'
+  'futebol_5', 'judô', 'tenis', 'beach_tennis'
 );
 
 create type visual_class as enum ('B1','B2','B3');

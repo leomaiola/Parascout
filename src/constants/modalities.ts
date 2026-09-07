@@ -622,6 +622,124 @@ export const ATLETISMO_METRICS: ModalityMetrics = {
 }
 
 // ============================================================
+// TÊNIS DE QUADRA
+// ============================================================
+
+export const TENIS_METRICS: ModalityMetrics = {
+  id: 'tenis',
+  label: 'Tênis de Quadra',
+  icon: 'CircleDot',
+  color: '#FDCB6E',
+  description: 'Tênis de quadra (inclui tênis em cadeira de rodas)',
+  court: {
+    type: 'volleyball',
+    aspectRatio: 24 / 11,
+    zones: [
+      { id: 'home_baseline', label: 'Fundo BRA', x: 0, y: 0, w: 40, h: 100, team: 'home' },
+      { id: 'net', label: 'Rede', x: 40, y: 0, w: 20, h: 100, team: 'neutral' },
+      { id: 'away_baseline', label: 'Fundo ADV', x: 60, y: 0, w: 40, h: 100, team: 'away' },
+    ]
+  },
+  categories: [
+    {
+      id: 'serve',
+      label: 'Saque',
+      color: 'bg-amber-50 border-amber-400 text-amber-700',
+      options: [
+        { value: 'ace', label: 'Ace', color: 'bg-amber-50', textColor: 'text-amber-700', icon: 'Zap', shortcut: 'q' },
+        { value: 'serve_in', label: 'Saque válido', color: 'bg-yellow-50', textColor: 'text-yellow-700', icon: 'Check', shortcut: 'w' },
+        { value: 'double_fault', label: 'Dupla falta', color: 'bg-red-50', textColor: 'text-red-700', icon: 'X', shortcut: 'e' },
+      ]
+    },
+    {
+      id: 'rally',
+      label: 'Troca de bola',
+      color: 'bg-blue-50 border-blue-400 text-blue-700',
+      options: [
+        { value: 'forehand', label: 'Forehand', color: 'bg-blue-50', textColor: 'text-blue-700', icon: 'ArrowRight', shortcut: 'a' },
+        { value: 'backhand', label: 'Backhand', color: 'bg-sky-50', textColor: 'text-sky-700', icon: 'ArrowLeft', shortcut: 's' },
+        { value: 'volley', label: 'Voleio', color: 'bg-teal-50', textColor: 'text-teal-700', icon: 'ArrowUp', shortcut: 'd' },
+        { value: 'smash', label: 'Smash', color: 'bg-indigo-50', textColor: 'text-indigo-700', icon: 'ArrowDown', shortcut: 'f' },
+        { value: 'drop_shot', label: 'Deixadinha', color: 'bg-cyan-50', textColor: 'text-cyan-700', icon: 'Minus', shortcut: 'g' },
+      ]
+    },
+    {
+      id: 'point',
+      label: 'Resultado do Ponto',
+      color: 'bg-green-50 border-green-400 text-green-700',
+      options: [
+        { value: 'winner', label: 'Winner', color: 'bg-green-50', textColor: 'text-green-700', icon: 'Trophy', shortcut: 'z' },
+        { value: 'unforced_error', label: 'Erro não forçado', color: 'bg-red-50', textColor: 'text-red-700', icon: 'XCircle', shortcut: 'x' },
+        { value: 'forced_error', label: 'Erro forçado', color: 'bg-orange-50', textColor: 'text-orange-700', icon: 'AlertTriangle', shortcut: 'c' },
+        { value: 'break_point', label: 'Break point ganho', color: 'bg-emerald-50', textColor: 'text-emerald-700', icon: 'Star', shortcut: 'v' },
+      ]
+    }
+  ],
+  additionalFields: [
+    { key: 'set_number', label: 'Set', type: 'number' },
+    { key: 'game_score', label: 'Placar do game', type: 'text' },
+  ]
+}
+
+// ============================================================
+// BEACH TENNIS
+// ============================================================
+
+export const BEACH_TENNIS_METRICS: ModalityMetrics = {
+  id: 'beach_tennis',
+  label: 'Beach Tennis',
+  icon: 'Sun',
+  color: '#00CEC9',
+  description: 'Beach tennis — geralmente disputado em duplas, sem quique permitido',
+  court: {
+    type: 'volleyball',
+    aspectRatio: 16 / 8,
+    zones: [
+      { id: 'home_baseline', label: 'Fundo BRA', x: 0, y: 0, w: 40, h: 100, team: 'home' },
+      { id: 'net', label: 'Rede', x: 40, y: 0, w: 20, h: 100, team: 'neutral' },
+      { id: 'away_baseline', label: 'Fundo ADV', x: 60, y: 0, w: 40, h: 100, team: 'away' },
+    ]
+  },
+  categories: [
+    {
+      id: 'serve',
+      label: 'Saque',
+      color: 'bg-amber-50 border-amber-400 text-amber-700',
+      options: [
+        { value: 'ace', label: 'Ace', color: 'bg-amber-50', textColor: 'text-amber-700', icon: 'Zap', shortcut: 'q' },
+        { value: 'serve_in', label: 'Saque válido', color: 'bg-yellow-50', textColor: 'text-yellow-700', icon: 'Check', shortcut: 'w' },
+        { value: 'fault', label: 'Falta', color: 'bg-red-50', textColor: 'text-red-700', icon: 'X', shortcut: 'e' },
+      ]
+    },
+    {
+      id: 'rally',
+      label: 'Troca de bola',
+      color: 'bg-blue-50 border-blue-400 text-blue-700',
+      options: [
+        { value: 'forehand', label: 'Forehand', color: 'bg-blue-50', textColor: 'text-blue-700', icon: 'ArrowRight', shortcut: 'a' },
+        { value: 'backhand', label: 'Backhand', color: 'bg-sky-50', textColor: 'text-sky-700', icon: 'ArrowLeft', shortcut: 's' },
+        { value: 'smash', label: 'Smash', color: 'bg-indigo-50', textColor: 'text-indigo-700', icon: 'ArrowDown', shortcut: 'd' },
+        { value: 'lob', label: 'Lob', color: 'bg-cyan-50', textColor: 'text-cyan-700', icon: 'ArrowUp', shortcut: 'f' },
+      ]
+    },
+    {
+      id: 'point',
+      label: 'Resultado do Ponto',
+      color: 'bg-green-50 border-green-400 text-green-700',
+      options: [
+        { value: 'winner', label: 'Winner', color: 'bg-green-50', textColor: 'text-green-700', icon: 'Trophy', shortcut: 'z' },
+        { value: 'unforced_error', label: 'Erro não forçado', color: 'bg-red-50', textColor: 'text-red-700', icon: 'XCircle', shortcut: 'x' },
+        { value: 'net_error', label: 'Erro na rede', color: 'bg-orange-50', textColor: 'text-orange-700', icon: 'AlertTriangle', shortcut: 'c' },
+      ]
+    }
+  ],
+  additionalFields: [
+    { key: 'set_number', label: 'Set', type: 'number' },
+    { key: 'game_score', label: 'Placar do game', type: 'text' },
+  ]
+}
+
+// ============================================================
 // ALL MODALITIES MAP
 // ============================================================
 
@@ -633,6 +751,8 @@ export const MODALITY_METRICS: Record<string, ModalityMetrics> = {
   paracanoagem: PARACANOAGEM_METRICS,
   remo: REMO_METRICS,
   atletismo: ATLETISMO_METRICS,
+  tenis: TENIS_METRICS,
+  beach_tennis: BEACH_TENNIS_METRICS,
 }
 
 export const MODALITY_LIST = Object.values(MODALITY_METRICS)

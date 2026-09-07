@@ -19,17 +19,22 @@ interface CourtPlayersProps {
 
 // Vertical positions (percent) for up to 3 slots along the goal line — matches Goalball's
 // 3-defenders-in-a-line formation. Works for the SVG viewBox 0..280 height used by GoalballCourt.
-const SLOT_Y_PERCENT = [22, 50, 78]
+const SLOT_Y_PERCENT_BY_COUNT: Record<number, number[]> = {
+  1: [50],
+  2: [33, 67],
+  3: [22, 50, 78],
+}
 
 export default function CourtPlayers({
   side, onCourt, roster, selectedAthleteId, color, onSelect, onSwap,
 }: CourtPlayersProps) {
   const [swapOpenIndex, setSwapOpenIndex] = useState<number | null>(null)
   const xPercent = side === 'left' ? 7 : 93
+  const slotYPercent = SLOT_Y_PERCENT_BY_COUNT[onCourt.length] || SLOT_Y_PERCENT_BY_COUNT[3]
 
   return (
     <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
-      {SLOT_Y_PERCENT.map((yPercent, i) => {
+      {slotYPercent.map((yPercent, i) => {
         const athlete = onCourt[i]
         if (!athlete) return null
         const isSelected = athlete.id === selectedAthleteId
