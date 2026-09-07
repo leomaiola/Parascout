@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Plus, Radio, Calendar, Trophy, X } from 'lucide-react'
-import { useMatches, useCreateMatch, useUpdateMatch, useAthletes } from '../hooks/useData'
+import { Plus, Radio, Calendar, Trophy, X, CheckCircle2, Users } from 'lucide-react'
+import { useMatches, useCreateMatch, useUpdateMatch, useAthletes, useAddMatchAthletes } from '../hooks/useData'
 import { MODALITY_LIST } from '../constants/modalities'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
@@ -30,16 +30,55 @@ export default function MatchesPage() {
   const { data: matches = [], isLoading } = useMatches()
   const createMatch = useCreateMatch()
   const updateMatch = useUpdateMatch()
+  const addMatchAthletes = useAddMatchAthletes()
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState<Partial<NewMatch>>(EMPTY_MATCH)
 
-  const { data: athletes = [] } = useAthletes()
+  // Escalação: { athleteId: jerseyNumber | null }
+  const [homeRoster, setHomeRoster] = useState<Record<string, number | null>>({})
+  const [awayRoster, setAwayRoster] = useState<Record<string, number | null>>({})
+
+  const { data: athletes = [] } = useAthletes(form.modality)
+
+  function toggleRoster(team: 'home' | 'away', athleteId: string) {
+    const [roster, setRoster, otherRoster] = team === 'home'
+      ? [homeRoster, setHomeRoster, awayRoster]
+      : [awayRoster, setAwayRoster, homeRoster]
+
+    // Um atleta não pode estar nos dois times na mesma partida — cada ID só aparece uma vez.
+    if (otherRoster[athleteId] !== undefined) return
+
+    setRoster((prev) => {
+      const next = { ...prev }
+      if (athleteId in next) delete next[athleteId]
+      else next[athleteId] = null
+      return next
+    })
+  }
+
+  function setJersey(team: 'home' | 'away', athleteId: string, jersey: number | null) {
+    const setRoster = team === 'home' ? setHomeRoster : setAwayRoster
+    setRoster((prev) => ({ ...prev, [athleteId]: jersey }))
+  }
 
   const handleCreate = async () => {
     if (!form.home_team || !form.away_team || !form.modality) return
     const created = await createMatch.mutateAsync(form as NewMatch)
+
+    const rows = [
+      ...Object.entries(homeRoster).map(([athlete_id, jersey_number]) => ({
+        match_id: created.id, athlete_id, team: 'home' as const, jersey_number, is_starting: true,
+      })),
+      ...Object.entries(awayRoster).map(([athlete_id, jersey_number]) => ({
+        match_id: created.id, athlete_id, team: 'away' as const, jersey_number, is_starting: true,
+      })),
+    ]
+    if (rows.length > 0) await addMatchAthletes.mutateAsync(rows)
+
     setShowForm(false)
     setForm(EMPTY_MATCH)
+    setHomeRoster({})
+    setAwayRoster({})
   }
 
   const goLive = async (matchId: string, currentStatus: string) => {
@@ -47,6 +86,10 @@ export default function MatchesPage() {
       await updateMatch.mutateAsync({ id: matchId, data: { status: 'live' } })
     }
     navigate(`/partidas/${matchId}/scout`)
+  }
+
+  const finishMatch = async (matchId: string) => {
+    await updateMatch.mutateAsync({ id: matchId, data: { status: 'finished' } })
   }
 
   return (
@@ -105,6 +148,57 @@ export default function MatchesPage() {
               <input type="number" style={inputStyle} value={form.period_duration_min || 12} onChange={(e) => setForm({ ...form, period_duration_min: +e.target.value })} />
             </div>
           </div>
+
+          {/* Escalação de atletas por equipe */}
+          <div style={{ marginTop: 16, borderTop: '1px solid #eee', paddingTop: 14 }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: '#555', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
+              <Users size={14} /> Escalação (necessária para usar a quadra interativa no Scout)
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+              {(['home', 'away'] as const).map((team) => (
+                <div key={team}>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: team === 'home' ? '#00B894' : '#E17055', marginBottom: 6 }}>
+                    {team === 'home' ? (form.home_team || 'Equipe casa') : (form.away_team || 'Equipe visitante')}
+                  </div>
+                  <div style={{ maxHeight: 180, overflowY: 'auto', border: '0.5px solid #eee', borderRadius: 8, padding: 6 }}>
+                    {athletes.length === 0 && (
+                      <div style={{ fontSize: 11, color: '#aaa', padding: 6 }}>Nenhum atleta cadastrado para essa modalidade.</div>
+                    )}
+                    {athletes.map((a) => {
+                      const roster = team === 'home' ? homeRoster : awayRoster
+                      const otherRoster = team === 'home' ? awayRoster : homeRoster
+                      const isChecked = a.id in roster
+                      const isDisabled = a.id in otherRoster
+                      return (
+                        <div key={a.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '3px 2px', opacity: isDisabled ? 0.35 : 1 }}>
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            disabled={isDisabled}
+                            onChange={() => toggleRoster(team, a.id)}
+                          />
+                          <span style={{ fontSize: 12, flex: 1 }}>{a.full_name}</span>
+                          {isChecked && (
+                            <input
+                              type="number"
+                              placeholder="Nº"
+                              value={roster[a.id] ?? ''}
+                              onChange={(e) => setJersey(team, a.id, e.target.value ? +e.target.value : null)}
+                              style={{ width: 46, padding: '2px 4px', fontSize: 11, borderRadius: 5, border: '0.5px solid #ccc' }}
+                            />
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div style={{ fontSize: 10, color: '#aaa', marginTop: 6 }}>
+              Cada atleta tem um ID único no banco — o mesmo atleta não pode ser escalado duas vezes nem em ambos os times na mesma partida.
+            </div>
+          </div>
+
           <div style={{ display: 'flex', gap: 8, marginTop: 14 }}>
             <button onClick={handleCreate} disabled={createMatch.isPending} style={{ background: '#00B894', color: '#fff', border: 'none', borderRadius: 8, padding: '9px 18px', cursor: 'pointer', fontFamily: 'Barlow', fontSize: 13, fontWeight: 600 }}>
               {createMatch.isPending ? 'Criando...' : 'Criar partida'}
@@ -196,6 +290,22 @@ export default function MatchesPage() {
                   >
                     <Radio size={13} />
                     {match.status === 'live' ? 'Continuar' : match.status === 'finished' ? 'Ver' : 'Iniciar Scout'}
+                  </button>
+                )}
+
+                {/* Concluir partida — disponível a qualquer momento (agendada ou ao vivo) */}
+                {(match.status === 'scheduled' || match.status === 'live') && (
+                  <button
+                    onClick={() => finishMatch(match.id)}
+                    title="Concluir partida"
+                    style={{
+                      background: '#f1f3f5', color: '#555', border: 'none', borderRadius: 8,
+                      padding: '8px 10px', cursor: 'pointer',
+                      display: 'flex', alignItems: 'center', gap: 6,
+                      fontFamily: 'Barlow', fontSize: 12, fontWeight: 600, flexShrink: 0
+                    }}
+                  >
+                    <CheckCircle2 size={13} /> Concluir
                   </button>
                 )}
               </div>

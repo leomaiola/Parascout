@@ -140,6 +140,47 @@ export function useUpdateMatch() {
   })
 }
 
+// ── MATCH ATHLETES (vínculo de elenco por partida) ─────────
+
+export interface NewMatchAthlete {
+  match_id: string
+  athlete_id: string
+  team: 'home' | 'away'
+  jersey_number?: number | null
+  is_starting?: boolean
+}
+
+export function useAddMatchAthletes() {
+  const qc = useQueryClient()
+  const { addToast } = useToastStore()
+  return useMutation({
+    mutationFn: async (rows: NewMatchAthlete[]) => {
+      if (rows.length === 0) return []
+      const { data, error } = await supabase.from('match_athletes').insert(rows).select()
+      if (error) throw error
+      return data
+    },
+    onSuccess: (_, rows) => {
+      if (rows[0]) qc.invalidateQueries({ queryKey: ['match_athletes', rows[0].match_id] })
+    },
+    onError: (e: Error) => addToast(`Erro ao vincular atletas: ${e.message}`, 'error'),
+  })
+}
+
+export function useRemoveMatchAthlete() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, matchId }: { id: string; matchId: string }) => {
+      const { error } = await supabase.from('match_athletes').delete().eq('id', id)
+      if (error) throw error
+      return matchId
+    },
+    onSuccess: (matchId) => {
+      qc.invalidateQueries({ queryKey: ['match_athletes', matchId] })
+    },
+  })
+}
+
 // ── SCOUT EVENTS ───────────────────────────────────────────
 
 export function useScoutEvents(matchId: string) {
