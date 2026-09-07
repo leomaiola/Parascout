@@ -12,6 +12,8 @@ import { useLiveScoutStore } from '../lib/store'
 import { MODALITY_METRICS } from '../constants/modalities'
 import GoalballCourt from '../components/scout/GoalballCourt'
 import CourtPlayers from '../components/scout/CourtPlayers'
+import GenericCourtZones from '../components/scout/GenericCourtZones'
+import LaneAthletes from '../components/scout/LaneAthletes'
 import AIPanel from '../components/scout/AIPanel'
 import EventTimeline from '../components/scout/EventTimeline'
 import type { NewScoutEvent } from '../lib/database.types'
@@ -21,6 +23,8 @@ const ICON_MAP: Record<string, React.ElementType> = {
   Shield, Trophy, AlertTriangle, Clock, Zap, ArrowUp, ArrowRight, Eye, Volume2, X,
   MoveDown: ChevronDown, XCircle: X, Star: Trophy, RefreshCw,
 }
+
+const LANE_MODALITIES = ['natacao', 'remo', 'paracanoagem', 'atletismo']
 
 function ActionIcon({ name, size = 18 }: { name: string; size?: number }) {
   const Icon = ICON_MAP[name] || Zap
@@ -255,6 +259,45 @@ export default function LiveScout() {
                 selectedAthleteId={selectedTeam === 'away' ? selectedAthlete?.id : null}
                 onSelect={(a) => { setSelectedTeam("away"); selectAthlete(a as any) }}
                 onSwap={(i, a) => swapSlot('away', i, a)}
+              />
+            </div>
+          )}
+
+          {/* Team-court modalities (rugby em cadeira, vôlei sentado): mesmo padrão de
+              atletas clicáveis, usando a configuração genérica de quadra da modalidade */}
+          {(modality === 'rugby' || modality === 'volei') && metrics && (
+            <div style={{ position: 'relative' }}>
+              <GenericCourtZones zones={metrics.court.zones} />
+              <CourtPlayers
+                side="left"
+                color="#00B894"
+                onCourt={homeOnCourt}
+                roster={homeAthletes}
+                selectedAthleteId={selectedTeam === 'home' ? selectedAthlete?.id : null}
+                onSelect={(a) => { setSelectedTeam("home"); selectAthlete(a as any) }}
+                onSwap={(i, a) => swapSlot('home', i, a)}
+              />
+              <CourtPlayers
+                side="right"
+                color="#E17055"
+                onCourt={awayOnCourt}
+                roster={awayAthletes}
+                selectedAthleteId={selectedTeam === 'away' ? selectedAthlete?.id : null}
+                onSelect={(a) => { setSelectedTeam("away"); selectAthlete(a as any) }}
+                onSwap={(i, a) => swapSlot('away', i, a)}
+              />
+            </div>
+          )}
+
+          {/* Modalidades de raia/percurso (natação, remo, paracanoagem, atletismo):
+              um atleta por raia, sem times — clicar seleciona para registrar a ação */}
+          {LANE_MODALITIES.includes(modality) && metrics && (
+            <div>
+              <GenericCourtZones zones={metrics.court.zones} />
+              <LaneAthletes
+                athletes={homeAthletes.length ? homeAthletes : awayAthletes}
+                selectedAthleteId={selectedAthlete?.id}
+                onSelect={(a) => { setSelectedTeam("home"); selectAthlete(a as any) }}
               />
             </div>
           )}
